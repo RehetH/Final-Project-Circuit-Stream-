@@ -1,5 +1,13 @@
 "use client";
 import React, { useState } from "react";
+import dynamic from "next/dynamic";
+import "leaflet/dist/leaflet.css";
+
+// Dynamically import react-leaflet components to avoid SSR issues
+const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
+const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
 
 const rewards = [
   { name: "Donut", points: 500, img: "🍩" },
@@ -8,14 +16,43 @@ const rewards = [
   { name: "T-Shirt", points: 1000, img: "👕" },
 ];
 
-const routes = [
-  { name: "Donall Dash", color: "#5B8DEF" },
-  { name: "I-health mozie", color: "#4BCB8B" },
-  { name: "Plata Povorwalk", color: "#FF6B6B" },
+// Example locations for search/autofill
+const locations = [
+  { name: "Pizza Place", coords: [51.505, -0.09] },
+  { name: "Donut Shop", coords: [51.51, -0.1] },
+  { name: "Salad Bar", coords: [51.507, -0.08] },
+  { name: "Cafe", coords: [51.503, -0.095] },
 ];
 
 export default function HomePage() {
   const [step, setStep] = useState(0);
+  const [search, setSearch] = useState("");
+  const [suggestions, setSuggestions] = useState(locations);
+  const [selectedLocation, setSelectedLocation] = useState(locations[0]);
+
+  // Autofill search handler
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearch(value);
+    setSuggestions(
+      locations
+        .filter(loc => loc.name.toLowerCase().includes(value.toLowerCase()))
+        .sort((a, b) => {
+          // Simulate "nearest" by order in array for now
+          return a.name.localeCompare(b.name);
+        })
+    );
+  };
+
+  // Select location from autofill
+  const handleSuggestionClick = (loc: typeof locations[0]) => {
+    setSelectedLocation(loc);
+    setSearch(loc.name);
+    setSuggestions([loc]);
+  };
+
+  // Back button helper
+  const handleBack = () => setStep((prev) => Math.max(prev - 1, 0));
 
   return (
     <div style={styles.container}>
@@ -29,13 +66,46 @@ export default function HomePage() {
 
       {step === 1 && (
         <section style={styles.screenWhite}>
-          <div style={styles.map}>
-            {routes.map((route, idx) => (
-              <div key={route.name} style={{ ...styles.route, background: route.color, left: 40 + idx * 80 }}>
-                {route.name}
-              </div>
-            ))}
-            <div style={styles.pin}>🥨</div>
+          <button style={styles.backButton} onClick={handleBack}>← Back</button>
+          <div style={styles.mapContainer}>
+            <div style={styles.searchBox}>
+              <input
+                type="text"
+                placeholder="Search for a location..."
+                value={search}
+                onChange={handleSearchChange}
+                style={styles.searchInput}
+              />
+              {search && (
+                <div style={styles.suggestions}>
+                  {suggestions.map((loc) => (
+                    <div
+                      key={loc.name}
+                      style={styles.suggestionItem}
+                      onClick={() => handleSuggestionClick(loc)}
+                    >
+                      {loc.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <MapContainer
+              center={selectedLocation.coords}
+              zoom={15}
+              style={{ height: "180px", width: "100%", borderRadius: "24px" }}
+              scrollWheelZoom={true}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
+              <Marker position={selectedLocation.coords}>
+                <Popup>
+                  {selectedLocation.name}
+                </Popup>
+              </Marker>
+            </MapContainer>
           </div>
           <div style={styles.stats}>
             <div><strong>235</strong><br />CALORIES</div>
@@ -48,6 +118,7 @@ export default function HomePage() {
 
       {step === 2 && (
         <section style={styles.screenOrange}>
+          <button style={styles.backButton} onClick={handleBack}>← Back</button>
           <div style={{ fontSize: 64, marginBottom: 16 }}>🍕</div>
           <h2 style={styles.title}>Pizza Powerwalk</h2>
           <p style={styles.subtitle}>+220 CALORIES<br />1 Free Pizza Slice</p>
@@ -61,6 +132,7 @@ export default function HomePage() {
 
       {step === 3 && (
         <section style={styles.screenPurple}>
+          <button style={styles.backButton} onClick={handleBack}>← Back</button>
           <h2 style={styles.title}>Rewards</h2>
           <div style={styles.tabs}>
             <button style={styles.tabActive}>All</button>
@@ -155,6 +227,67 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: "pointer",
     marginTop: 32,
     transition: "transform 0.1s",
+  },
+  backButton: {
+    position: "absolute",
+    top: 24,
+    left: 24,
+    background: "#fff",
+    color: "#FF7043",
+    border: "none",
+    borderRadius: 16,
+    padding: "8px 20px",
+    fontWeight: 700,
+    fontSize: 16,
+    cursor: "pointer",
+    boxShadow: "0 2px 8px rgba(255,112,67,0.15)",
+    zIndex: 1,
+  },
+  mapContainer: {
+    width: "100%",
+    marginBottom: 24,
+    borderRadius: 24,
+    background: "#FFF7F0",
+    boxShadow: "0 2px 8px rgba(255, 167, 38, 0.08)",
+    position: "relative",
+    overflow: "hidden",
+  },
+  searchBox: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    right: 12,
+    zIndex: 2,
+    background: "#fff",
+    borderRadius: 16,
+    boxShadow: "0 2px 8px rgba(255,167,38,0.10)",
+    padding: "8px 12px",
+  },
+  searchInput: {
+    width: "100%",
+    border: "none",
+    outline: "none",
+    fontSize: 16,
+    borderRadius: 12,
+    padding: "8px",
+    fontFamily: "'Nunito', 'Arial Rounded MT Bold', Arial, sans-serif",
+  },
+  suggestions: {
+    marginTop: 8,
+    background: "#FFF7F0",
+    borderRadius: 12,
+    boxShadow: "0 2px 8px rgba(255,167,38,0.10)",
+    maxHeight: 120,
+    overflowY: "auto",
+  },
+  suggestionItem: {
+    padding: "8px 12px",
+    cursor: "pointer",
+    borderRadius: 8,
+    fontSize: 16,
+    color: "#FF7043",
+    fontWeight: 700,
+    transition: "background 0.2s",
   },
   map: {
     width: 260,
