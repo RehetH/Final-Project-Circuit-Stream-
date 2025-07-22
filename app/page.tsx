@@ -307,15 +307,29 @@ export default function HomePage() {
   // --- Layout ---
   const locationIsSet = !!userLocation || !!cityInput;
 
-  // Calculate distance from user to selected location
-  let distanceKm = 0;
-  if (userLocation && selectedLocation) {
-    distanceKm = getDistanceKm(userLocation, selectedLocation.coords);
-    distanceKm = clampDistance(distanceKm, 10); // Clamp to max 10km for points
+  // Calculate distance for each location from user (all under 10km)
+  const locationDistances: { [id: string]: number } = {};
+  if (userLocation) {
+    LOCATIONS.forEach(loc => {
+      let dist = getDistanceKm(userLocation, loc.coords);
+      dist = clampDistance(dist, 10); // Ensure all distances are <= 10km
+      locationDistances[loc.id] = dist;
+    });
   }
 
-  // Points scaling: 100 base + 25 points per km, rounded, max 10km
-  const pointsForThisTask = Math.round(100 + distanceKm * 25);
+  // Calculate points for each location (100 base + 25 per km, max 10km)
+  const locationPoints: { [id: string]: number } = {};
+  Object.entries(locationDistances).forEach(([id, dist]) => {
+    locationPoints[id] = Math.round(100 + dist * 25);
+  });
+
+  // Calculate distance and points for selected location
+  let distanceKm = 0;
+  let pointsForThisTask = 100;
+  if (userLocation && selectedLocation) {
+    distanceKm = locationDistances[selectedLocation.id] ?? 0;
+    pointsForThisTask = locationPoints[selectedLocation.id] ?? 100;
+  }
 
   return (
     <div className="min-h-screen bg-[#1a140f] flex flex-col font-sans relative overflow-hidden">
@@ -513,10 +527,10 @@ export default function HomePage() {
             </div>
           </div>
           {/* Main UI Content */}
-          <div className="w-full h-full flex flex-col items-center justify-center px-8 pb-8">
+          <div className="w-full h-full flex flex-col items-center justify-center px-0 pb-0">
             {/* Location Prompt */}
             {showLocationPrompt && (
-              <section className="bg-white/80 rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center mb-4 w-full max-w-xl mx-auto">
+              <section className="bg-white/80 rounded-[32px] shadow-xl flex flex-col items-center text-center mb-4 w-full h-full justify-center">
                 <h2 className="text-[#FF7043] font-extrabold text-2xl mb-2">Share your location</h2>
                 <p className="text-[#FF7043] mb-4">To get started, share your location or enter your city/state/country.</p>
                 <button
@@ -525,7 +539,7 @@ export default function HomePage() {
                 >
                   Share My Location
                 </button>
-                <div className="w-full max-w-xs mx-auto mb-2">
+                <div className="w-full max-w-xs mb-2">
                   <input
                     type="text"
                     value={cityInput}
@@ -557,7 +571,7 @@ export default function HomePage() {
 
             {step === 0 && !showLocationPrompt && (
               <section
-                className="bg-[#FFA726] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
+                className="bg-[#FFA726] rounded-[32px] shadow-xl flex flex-col items-center text-center w-full h-full justify-center"
               >
                 <h1 className="text-white font-extrabold text-4xl mb-4 tracking-tight">SNACKNAV</h1>
                 <p className="text-white text-lg font-semibold mb-8 leading-relaxed">
@@ -582,7 +596,7 @@ export default function HomePage() {
 
             {step === 1 && !showLocationPrompt && (
               <section
-                className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center"
+                className="bg-white rounded-[32px] shadow-xl flex flex-col items-center w-full h-full justify-center"
               >
                 <div className="w-full flex justify-between items-center mb-4 relative">
                   <button
@@ -660,7 +674,7 @@ export default function HomePage() {
 
             {step === 2 && !showLocationPrompt && (
               <section
-                className="bg-[#FFA726] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
+                className="bg-[#FFA726] rounded-[32px] shadow-xl flex flex-col items-center text-center w-full h-full justify-center"
               >
                 {/* Task Details from slider */}
                 <div className="w-full flex justify-between items-center mb-4">
@@ -759,7 +773,7 @@ export default function HomePage() {
 
             {step === 3 && !showLocationPrompt && (
               <section
-                className="bg-[#5C53FF] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
+                className="bg-[#5C53FF] rounded-[32px] shadow-xl flex flex-col items-center text-center w-full h-full justify-center"
               >
                 <div className="w-full flex justify-between items-center mb-4">
                   <button
@@ -810,7 +824,7 @@ export default function HomePage() {
 
             {step === 4 && !showLocationPrompt && (
               <section
-                className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
+                className="bg-white rounded-[32px] shadow-xl flex flex-col items-center text-center w-full h-full justify-center"
               >
                 <h2 className="text-[#FF7043] font-extrabold text-2xl mb-4">Profile</h2>
                 <p className="text-lg text-[#FF7043]">Profile details coming soon!</p>
@@ -857,6 +871,20 @@ export default function HomePage() {
             border-radius: 1.5rem !important;
             padding: 0 !important;
           }
+          section {
+            border-radius: 1.5rem !important;
+            padding: 0.5rem !important;
+          }
+        }
+        section {
+          width: 100% !important;
+          height: 100% !important;
+          margin: 0 !important;
+          border-radius: 2.5rem;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
         }
       `}</style>
     </div>
