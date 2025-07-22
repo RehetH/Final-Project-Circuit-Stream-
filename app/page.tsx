@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 // --- Types ---
@@ -19,6 +19,16 @@ interface Reward {
   points: number;
   img: string;
   brand: string;
+}
+
+interface Task {
+  id: string;
+  name: string;
+  description: string;
+  calories: number;
+  steps: number;
+  locationId: string;
+  icon: string;
 }
 
 const LOCATIONS: Location[] = [
@@ -45,6 +55,127 @@ const NAV_LINKS = [
   { label: "Profile", step: 4, icon: "👤" },
 ];
 
+const REWARD_TABS = ["All", "Starbucks", "Target", "Domino's", "Chipotle"];
+
+const TASKS: Task[] = [
+  {
+    id: "t1",
+    name: "Coffee Walk",
+    description: "Walk to Starbucks for a coffee break.",
+    calories: 120,
+    steps: 1500,
+    locationId: "1",
+    icon: "☕",
+  },
+  {
+    id: "t2",
+    name: "Target Run",
+    description: "Walk to Target and grab essentials.",
+    calories: 180,
+    steps: 2000,
+    locationId: "2",
+    icon: "🎯",
+  },
+  {
+    id: "t3",
+    name: "Pizza Powerwalk",
+    description: "Walk to Domino's for a pizza slice.",
+    calories: 220,
+    steps: 2500,
+    locationId: "3",
+    icon: "🍕",
+  },
+  {
+    id: "t4",
+    name: "Burrito Dash",
+    description: "Walk to Chipotle for a burrito.",
+    calories: 200,
+    steps: 1800,
+    locationId: "4",
+    icon: "🌯",
+  },
+  {
+    id: "t5",
+    name: "Park Stroll",
+    description: "Enjoy a stroll in the local park.",
+    calories: 90,
+    steps: 1200,
+    locationId: "5",
+    icon: "🌳",
+  },
+  {
+    id: "t6",
+    name: "Morning Coffee",
+    description: "Start your day with a walk to Starbucks.",
+    calories: 110,
+    steps: 1400,
+    locationId: "1",
+    icon: "☕",
+  },
+  {
+    id: "t7",
+    name: "Grocery Sprint",
+    description: "Quick walk to Target for groceries.",
+    calories: 160,
+    steps: 1700,
+    locationId: "2",
+    icon: "🎯",
+  },
+  {
+    id: "t8",
+    name: "Pizza Night",
+    description: "Evening walk to Domino's for dinner.",
+    calories: 210,
+    steps: 2300,
+    locationId: "3",
+    icon: "🍕",
+  },
+  {
+    id: "t9",
+    name: "Chipotle Lunch",
+    description: "Walk to Chipotle for a healthy lunch.",
+    calories: 190,
+    steps: 1600,
+    locationId: "4",
+    icon: "🌯",
+  },
+  {
+    id: "t10",
+    name: "Park Picnic",
+    description: "Walk to the park for a picnic.",
+    calories: 100,
+    steps: 1300,
+    locationId: "5",
+    icon: "🌳",
+  },
+];
+
+// Helper for autofill (mocked for demo)
+const CITY_SUGGESTIONS = [
+  "London, England, UK",
+  "New York, NY, USA",
+  "San Francisco, CA, USA",
+  "Toronto, ON, Canada",
+  "Sydney, NSW, Australia",
+];
+
+function UserLocationMarker({ position }: { position: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (position) {
+      map.setView(position, 15);
+    }
+  }, [position, map]);
+  if (!position) return null;
+  return (
+    <Marker position={position}>
+      <Popup>
+        <span className="font-bold text-[#5C53FF]">You are here</span>
+      </Popup>
+    </Marker>
+  );
+}
+
 export default function HomePage() {
   const [step, setStep] = useState(0);
   const [search, setSearch] = useState("");
@@ -54,6 +185,18 @@ export default function HomePage() {
   const [scrolled, setScrolled] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [uploaded, setUploaded] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeRewardTab, setActiveRewardTab] = useState<string>("All");
+  const [points, setPoints] = useState(0);
+
+  // Location sharing
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(true);
+  const [cityInput, setCityInput] = useState("");
+  const [citySuggestions, setCitySuggestions] = useState<string[]>(CITY_SUGGESTIONS);
+
+  // Task slider
+  const [activeTaskIdx, setActiveTaskIdx] = useState(0);
 
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -63,10 +206,11 @@ export default function HomePage() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Search handler
+  // Search handler with suggestions
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearch(value);
+    setShowSuggestions(true);
     setFilteredLocations(
       LOCATIONS.filter(loc =>
         loc.name.toLowerCase().includes(value.toLowerCase()) ||
@@ -75,7 +219,74 @@ export default function HomePage() {
     );
   };
 
+  // Select location from suggestions
+  const handleLocationSelect = (loc: Location) => {
+    setSelectedLocation(loc);
+    setSearch(loc.name);
+    setShowSuggestions(false);
+  };
+
+  // Hide suggestions on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Filter rewards by tab
+  const displayedRewards = activeRewardTab === "All"
+    ? REWARDS
+    : REWARDS.filter(r => r.brand === activeRewardTab);
+
+  // Location autofill suggestions
+  const handleCityInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCityInput(value);
+    setCitySuggestions(
+      CITY_SUGGESTIONS.filter(s =>
+        s.toLowerCase().includes(value.toLowerCase())
+      )
+    );
+  };
+
+  // Handle autofill selection
+  const handleCitySelect = (city: string) => {
+    setCityInput(city);
+    setShowLocationPrompt(false);
+    // For demo, set a location based on city
+    if (city === "London, England, UK") setUserLocation([51.505, -0.09]);
+    else if (city === "New York, NY, USA") setUserLocation([40.7128, -74.006]);
+    else if (city === "San Francisco, CA, USA") setUserLocation([37.7749, -122.4194]);
+    else if (city === "Toronto, ON, Canada") setUserLocation([43.6532, -79.3832]);
+    else if (city === "Sydney, NSW, Australia") setUserLocation([-33.8688, 151.2093]);
+    else setUserLocation(null);
+  };
+
+  // Geolocation API
+  const handleShareLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          setUserLocation([pos.coords.latitude, pos.coords.longitude]);
+          setShowLocationPrompt(false);
+        },
+        () => setShowLocationPrompt(false)
+      );
+    } else {
+      setShowLocationPrompt(false);
+    }
+  };
+
   // --- Layout ---
+  const locationIsSet = !!userLocation || !!cityInput;
+
   return (
     <div className="min-h-screen bg-[#FFA726] flex flex-col font-sans">
       {/* Sticky Nav */}
@@ -84,7 +295,7 @@ export default function HomePage() {
         role="navigation"
         aria-label="Main Navigation"
       >
-        <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="text-[#FF7043] font-extrabold text-2xl tracking-tight">SNACKNAV</span>
           </div>
@@ -145,13 +356,86 @@ export default function HomePage() {
             </nav>
           </div>
         )}
+        <div className="sticky top-[64px] z-30 bg-white border-b border-[#FFE0B2]">
+          <div className="overflow-x-auto flex gap-2 px-4 py-2 scrollbar-hide">
+            {TASKS.map((task, idx) => (
+              <button
+                key={task.id}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-base transition whitespace-nowrap
+                  ${activeTaskIdx === idx
+                    ? "bg-[#FF7043] text-white shadow"
+                    : "bg-[#FFF3E0] text-[#FF7043] hover:bg-[#FFE0B2]"}
+                `}
+                onClick={() => {
+                  setActiveTaskIdx(idx);
+                  const loc = LOCATIONS.find(l => l.id === task.locationId);
+                  if (loc) setSelectedLocation(loc);
+                  if (locationIsSet) setStep(2);
+                }}
+                aria-current={activeTaskIdx === idx ? "true" : undefined}
+                disabled={!locationIsSet}
+                style={!locationIsSet ? { opacity: 0.5, cursor: "not-allowed" } : {}}
+              >
+                <span>{task.icon}</span>
+                <span>{task.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center px-2 pt-24 pb-8">
-        <div className="w-full max-w-lg">
-          {/* Remove AnimatePresence/motion if framer-motion is not installed */}
-          {step === 0 && (
+      <main className="flex-1 flex items-center justify-center px-2 pt-32 pb-8">
+        <div className="w-full max-w-4xl mx-auto">
+          {/* Points Bar */}
+          <div className="flex justify-end items-center mb-2">
+            <div className="bg-white rounded-full px-4 py-2 shadow font-bold text-[#FF7043] flex items-center gap-2">
+              <span>⭐</span>
+              <span>{points} pts</span>
+            </div>
+          </div>
+          {/* Location Prompt */}
+          {showLocationPrompt && (
+            <section className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center mb-4">
+              <h2 className="text-[#FF7043] font-extrabold text-2xl mb-2">Share your location</h2>
+              <p className="text-[#FF7043] mb-4">To get started, share your location or enter your city/state/country.</p>
+              <button
+                className="bg-[#FFA726] text-white font-bold px-6 py-2 rounded-full shadow mb-4"
+                onClick={handleShareLocation}
+              >
+                Share My Location
+              </button>
+              <div className="w-full max-w-xs mx-auto mb-2">
+                <input
+                  type="text"
+                  value={cityInput}
+                  onChange={handleCityInput}
+                  placeholder="Enter city, state, country"
+                  className="w-full px-4 py-2 rounded-full bg-[#FFF3E0] text-[#FF7043] font-bold shadow focus:outline-none focus:ring-2 focus:ring-[#FF7043] transition"
+                  autoComplete="off"
+                />
+                {cityInput.length > 0 && (
+                  <ul className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg z-10 border border-[#FFE0B2]">
+                    {citySuggestions.length === 0 ? (
+                      <li className="px-4 py-2 text-[#FF7043] font-semibold">No results</li>
+                    ) : (
+                      citySuggestions.map(s => (
+                        <li
+                          key={s}
+                          className="px-4 py-2 cursor-pointer hover:bg-[#FFF3E0] text-[#FF7043] font-semibold"
+                          onClick={() => handleCitySelect(s)}
+                        >
+                          {s}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                )}
+              </div>
+            </section>
+          )}
+
+          {step === 0 && !showLocationPrompt && (
             <section
               className="bg-[#FFA726] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
             >
@@ -161,36 +445,65 @@ export default function HomePage() {
               </p>
               <button
                 className="bg-[#FF7043] text-white font-bold text-lg px-8 py-4 rounded-full shadow-lg transition hover:bg-[#F4511E] active:bg-[#FF7043]"
-                onClick={() => setStep(1)}
+                onClick={() => locationIsSet && setStep(1)}
                 aria-label="Get Started"
+                disabled={!locationIsSet}
+                style={!locationIsSet ? { opacity: 0.5, cursor: "not-allowed" } : {}}
               >
                 Get Started
               </button>
+              {!locationIsSet && (
+                <div className="mt-2 text-white text-sm font-semibold">
+                  Please share your location or enter your city to continue.
+                </div>
+              )}
             </section>
           )}
 
-          {step === 1 && (
+          {step === 1 && !showLocationPrompt && (
             <section
               className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center"
             >
-              <div className="w-full flex justify-between items-center mb-4">
+              <div className="w-full flex justify-between items-center mb-4 relative">
                 <button
                   className="bg-[#FFF3E0] text-[#FF7043] font-bold px-4 py-2 rounded-full shadow hover:bg-[#FFE0B2] transition"
                   onClick={() => setStep(0)}
                 >
                   ←
                 </button>
-                <input
-                  ref={searchRef}
-                  type="text"
-                  placeholder="Search for a location..."
-                  value={search}
-                  onChange={handleSearchChange}
-                  className="w-2/3 px-4 py-2 rounded-full bg-[#FFF3E0] text-[#FF7043] font-bold shadow focus:outline-none focus:ring-2 focus:ring-[#FF7043] transition"
-                  autoComplete="off"
-                />
+                <div className="w-2/3 relative">
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    placeholder="Search for a location..."
+                    value={search}
+                    onChange={handleSearchChange}
+                    className="w-full px-4 py-2 rounded-full bg-[#FFF3E0] text-[#FF7043] font-bold shadow focus:outline-none focus:ring-2 focus:ring-[#FF7043] transition"
+                    autoComplete="off"
+                    onFocus={() => setShowSuggestions(true)}
+                  />
+                  {showSuggestions && search.length > 0 && (
+                    <ul className="absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-lg z-10 border border-[#FFE0B2]">
+                      {filteredLocations.length === 0 ? (
+                        <li className="px-4 py-2 text-[#FF7043] font-semibold">No results</li>
+                      ) : (
+                        filteredLocations.map(loc => (
+                          <li
+                            key={loc.id}
+                            className="px-4 py-2 cursor-pointer hover:bg-[#FFF3E0] text-[#FF7043] font-semibold flex items-center gap-2"
+                            onClick={() => handleLocationSelect(loc)}
+                          >
+                            <span>{loc.icon}</span>
+                            <span>{loc.name}</span>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </div>
               </div>
-              <div className="w-full mb-4">
+              <div className="w-full mb-4" style={{ position: "relative" }}>
+                {/* @ts-ignore */}
                 <MapContainer
                   center={selectedLocation.coords as [number, number]}
                   zoom={15}
@@ -200,13 +513,14 @@ export default function HomePage() {
                   <TileLayer
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  {filteredLocations.map(loc => (
-                    <Marker key={loc.id} position={loc.coords as [number, number]}>
-                      <Popup>
-                        <span className="font-bold">{loc.icon} {loc.name}</span>
-                      </Popup>
-                    </Marker>
-                  ))}
+                  {/* Show ping for target location */}
+                  <Marker position={selectedLocation.coords as [number, number]}>
+                    <Popup>
+                      <span className="font-bold text-[#FF7043]">{selectedLocation.icon} {selectedLocation.name}</span>
+                    </Popup>
+                  </Marker>
+                  {/* Show user location if available */}
+                  <UserLocationMarker position={userLocation} />
                 </MapContainer>
               </div>
               <div className="flex justify-between w-full mb-4 text-[#FF7043] font-bold text-base">
@@ -224,10 +538,11 @@ export default function HomePage() {
             </section>
           )}
 
-          {step === 2 && (
+          {step === 2 && !showLocationPrompt && (
             <section
               className="bg-[#FFA726] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
             >
+              {/* Task Details from slider */}
               <div className="w-full flex justify-between items-center mb-4">
                 <button
                   className="bg-[#FFF3E0] text-[#FF7043] font-bold px-4 py-2 rounded-full shadow hover:bg-[#FFE0B2] transition"
@@ -235,16 +550,19 @@ export default function HomePage() {
                 >
                   ←
                 </button>
-                <span className="text-4xl">{selectedLocation.icon}</span>
+                <span className="text-4xl">{TASKS[activeTaskIdx].icon}</span>
               </div>
-              <h2 className="text-white font-extrabold text-2xl mb-2">Pizza Powerwalk</h2>
+              <h2 className="text-white font-extrabold text-2xl mb-2">{TASKS[activeTaskIdx].name}</h2>
               <p className="text-white text-lg font-semibold mb-4">
-                +220 CALORIES<br />1 Free Pizza Slice
+                {TASKS[activeTaskIdx].description}<br />
+                <span className="text-[#FFF3E0] font-bold">
+                  +{TASKS[activeTaskIdx].calories} CALORIES · {TASKS[activeTaskIdx].steps} STEPS
+                </span>
               </p>
               <div className="w-full flex justify-center mb-6">
                 <div className="w-44 h-20 bg-[#FFF3E0] rounded-xl flex items-center justify-center shadow text-2xl">
                   <span className="mr-2">{selectedLocation.icon}</span>
-                  <span>{selectedLocation.name}</span>
+                  <span className="font-extrabold text-[#FF7043]">{selectedLocation.name}</span>
                 </div>
               </div>
               <button
@@ -283,7 +601,12 @@ export default function HomePage() {
                         <span className="text-green-600 font-bold mb-2">Photo uploaded! 🎉</span>
                         <button
                           className="bg-[#FF7043] text-white font-bold px-6 py-2 rounded-full shadow transition hover:bg-[#F4511E]"
-                          onClick={() => { setShowUpload(false); setStep(3); setUploaded(false); }}
+                          onClick={() => {
+                            setShowUpload(false);
+                            setStep(3);
+                            setUploaded(false);
+                            setPoints(points + 100); // Award points for upload
+                          }}
                         >
                           Continue
                         </button>
@@ -301,7 +624,7 @@ export default function HomePage() {
             </section>
           )}
 
-          {step === 3 && (
+          {step === 3 && !showLocationPrompt && (
             <section
               className="bg-[#5C53FF] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
             >
@@ -316,28 +639,33 @@ export default function HomePage() {
               </div>
               <h2 className="text-white font-extrabold text-2xl mb-4">Rewards</h2>
               <div className="flex gap-2 mb-6 w-full justify-center">
-                {["All", "Starbucks", "Target", "Domino's", "Chipotle"].map(tab => (
+                {REWARD_TABS.map(tab => (
                   <button
                     key={tab}
                     className={`px-4 py-2 rounded-full font-bold text-base transition
-                      ${tab === "All"
+                      ${tab === activeRewardTab
                         ? "bg-white text-[#5C53FF] shadow"
                         : "bg-[#5C53FF] text-white border border-white"}
                     `}
+                    onClick={() => setActiveRewardTab(tab)}
                   >
                     {tab}
                   </button>
                 ))}
               </div>
               <div className="grid grid-cols-2 gap-4 w-full">
-                {REWARDS.map(reward => (
+                {displayedRewards.map(reward => (
                   <div key={reward.id} className="bg-white rounded-xl shadow p-4 flex flex-col items-center text-[#5C53FF] font-bold">
                     <div className="text-4xl mb-2">{reward.img}</div>
                     <div className="text-lg mb-1">{reward.name}</div>
                     <div className="text-base mb-2 text-[#FFA726]">{reward.points} pts</div>
                     <button
-                      className="bg-[#FFA726] text-white font-bold px-4 py-2 rounded-full shadow transition hover:bg-[#FF7043] active:bg-[#FFA726]"
+                      className={`bg-[#FFA726] text-white font-bold px-4 py-2 rounded-full shadow transition hover:bg-[#FF7043] active:bg-[#FFA726] ${points < reward.points ? "opacity-50 cursor-not-allowed" : ""}`}
                       aria-label={`Claim ${reward.name}`}
+                      disabled={points < reward.points}
+                      onClick={() => {
+                        if (points >= reward.points) setPoints(points - reward.points);
+                      }}
                     >
                       Claim
                     </button>
@@ -347,12 +675,25 @@ export default function HomePage() {
             </section>
           )}
 
-          {step === 4 && (
+          {step === 4 && !showLocationPrompt && (
             <section
               className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
             >
               <h2 className="text-[#FF7043] font-extrabold text-2xl mb-4">Profile</h2>
               <p className="text-lg text-[#FF7043]">Profile details coming soon!</p>
+              <div className="mt-4 bg-[#FFF3E0] rounded-xl px-4 py-2 text-[#FF7043] font-bold shadow">
+                Points: {points}
+              </div>
+              {userLocation && (
+                <div className="mt-2 text-[#FF7043] text-sm">
+                  Your location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+                </div>
+              )}
+              {cityInput && (
+                <div className="mt-2 text-[#FF7043] text-sm">
+                  City: {cityInput}
+                </div>
+              )}
             </section>
           )}
         </div>
@@ -366,8 +707,10 @@ export default function HomePage() {
         body, .font-sans {
           font-family: 'Nunito', Arial, sans-serif;
         }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         @media (max-width: 600px) {
-          .max-w-lg { max-width: 100vw !important; }
+          .max-w-4xl { max-width: 100vw !important; }
           .rounded-[32px] { border-radius: 0.75rem !important; }
           .p-8 { padding: 1.25rem !important; }
         }
