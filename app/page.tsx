@@ -176,6 +176,26 @@ function UserLocationMarker({ position }: { position: [number, number] | null })
   );
 }
 
+// Helper function to calculate distance between two lat/lng points (in km)
+function getDistanceKm(a: [number, number], b: [number, number]) {
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const R = 6371; // Earth radius in km
+  const dLat = toRad(b[0] - a[0]);
+  const dLon = toRad(b[1] - a[1]);
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+  const aVal =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(aVal), Math.sqrt(1 - aVal));
+  return R * c;
+}
+
+// Utility: Clamp distance to a reasonable max (e.g., 10km)
+function clampDistance(distance: number, max: number = 10) {
+  return Math.min(distance, max);
+}
+
 export default function HomePage() {
   const [step, setStep] = useState(0);
   const [search, setSearch] = useState("");
@@ -287,15 +307,97 @@ export default function HomePage() {
   // --- Layout ---
   const locationIsSet = !!userLocation || !!cityInput;
 
+  // Calculate distance from user to selected location
+  let distanceKm = 0;
+  if (userLocation && selectedLocation) {
+    distanceKm = getDistanceKm(userLocation, selectedLocation.coords);
+    distanceKm = clampDistance(distanceKm, 10); // Clamp to max 10km for points
+  }
+
+  // Points scaling: 100 base + 25 points per km, rounded, max 10km
+  const pointsForThisTask = Math.round(100 + distanceKm * 25);
+
   return (
-    <div className="min-h-screen bg-[#FFA726] flex flex-col font-sans">
+    <div className="min-h-screen bg-[#1a140f] flex flex-col font-sans relative overflow-hidden">
+      {/* Animated Elden Ring-style background */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <svg width="100%" height="100%" className="absolute inset-0" style={{ position: "absolute", width: "100vw", height: "100vh" }}>
+          {/* Animated stars */}
+          {[...Array(80)].map((_, i) => (
+            <circle
+              key={i}
+              cx={Math.random() * 1920}
+              cy={Math.random() * 1080}
+              r={Math.random() * 1.8 + 0.7}
+              fill="#FFD700"
+              opacity={Math.random() * 0.7 + 0.3}
+            >
+              <animate
+                attributeName="cx"
+                values={`${Math.random() * 1920};${Math.random() * 1920}`}
+                dur={`${Math.random() * 10 + 8}s`}
+                repeatCount="indefinite"
+              />
+              <animate
+                attributeName="cy"
+                values={`${Math.random() * 1080};${Math.random() * 1080}`}
+                dur={`${Math.random() * 10 + 8}s`}
+                repeatCount="indefinite"
+              />
+            </circle>
+          ))}
+          {/* Elden Ring style golden arc */}
+          <ellipse
+            cx="50%"
+            cy="60%"
+            rx="40vw"
+            ry="18vw"
+            fill="none"
+            stroke="#FFD700"
+            strokeWidth="6"
+            opacity="0.25"
+          >
+            <animate
+              attributeName="opacity"
+              values="0.15;0.35;0.15"
+              dur="8s"
+              repeatCount="indefinite"
+            />
+          </ellipse>
+          <ellipse
+            cx="50%"
+            cy="60%"
+            rx="30vw"
+            ry="12vw"
+            fill="none"
+            stroke="#FFB300"
+            strokeWidth="3"
+            opacity="0.18"
+          >
+            <animate
+              attributeName="opacity"
+              values="0.10;0.25;0.10"
+              dur="10s"
+              repeatCount="indefinite"
+            />
+          </ellipse>
+        </svg>
+        {/* Review animation (floating text) */}
+        <div className="absolute left-1/2 top-16 transform -translate-x-1/2 z-10 pointer-events-none">
+          <div className="text-[#FFD700] text-2xl font-bold animate-fadein">
+            "⭐ Elden Ring meets SnackNav. Gorgeous UI, fun rewards, and a reason to walk!" 
+          </div>
+        </div>
+      </div>
+
       {/* Sticky Nav */}
       <header
-        className={`fixed top-0 left-0 w-full z-40 bg-white transition-shadow duration-300 ${scrolled ? "shadow-lg" : ""}`}
+        className={`fixed top-0 left-0 w-full z-40 bg-[#1a140f] transition-shadow duration-300 ${scrolled ? "shadow-lg" : ""}`}
         role="navigation"
         aria-label="Main Navigation"
+        style={{ borderBottom: "2px solid #FFD700" }}
       >
-        <div className="max-w-4xl mx-auto flex items-center justify-between px-4 py-3">
+        <div className="max-w-screen-2xl mx-auto flex items-center justify-between px-8 py-3">
           <div className="flex items-center gap-2">
             <span className="text-[#FF7043] font-extrabold text-2xl tracking-tight">SNACKNAV</span>
           </div>
@@ -356,8 +458,8 @@ export default function HomePage() {
             </nav>
           </div>
         )}
-        <div className="sticky top-[64px] z-30 bg-white border-b border-[#FFE0B2]">
-          <div className="overflow-x-auto flex gap-2 px-4 py-2 scrollbar-hide">
+        <div className="sticky top-[64px] z-30 bg-[#1a140f] border-b border-[#FFE0B2]">
+          <div className="overflow-x-auto flex gap-2 px-8 py-2 scrollbar-hide">
             {TASKS.map((task, idx) => (
               <button
                 key={task.id}
@@ -385,317 +487,349 @@ export default function HomePage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center px-2 pt-32 pb-8">
-        <div className="w-full max-w-4xl mx-auto">
+      <main className="flex-1 flex items-center justify-center px-2 pt-32 pb-8 relative z-10">
+        <div
+          className="shadow-2xl flex flex-col items-center justify-center"
+          style={{
+            width: "clamp(480px, 70vw, 1200px)",
+            minHeight: "clamp(600px, 80vh, 900px)",
+            borderRadius: "48px",
+            margin: "0 auto",
+            padding: "0",
+            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            background: "linear-gradient(135deg, #FFA726 85%, #FFD700 100%)",
+            boxShadow: "0 0 80px 0 #FFD70055",
+            border: "2px solid #FFD700",
+            overflow: "hidden",
+          }}
+        >
           {/* Points Bar */}
-          <div className="flex justify-end items-center mb-2">
-            <div className="bg-white rounded-full px-4 py-2 shadow font-bold text-[#FF7043] flex items-center gap-2">
+          <div className="flex justify-end items-center mb-2 w-full px-8 pt-8">
+            <div className="bg-[#FFF3E0] rounded-full px-4 py-2 shadow font-bold text-[#FF7043] flex items-center gap-2">
               <span>⭐</span>
               <span>{points} pts</span>
             </div>
           </div>
-          {/* Location Prompt */}
-          {showLocationPrompt && (
-            <section className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center mb-4">
-              <h2 className="text-[#FF7043] font-extrabold text-2xl mb-2">Share your location</h2>
-              <p className="text-[#FF7043] mb-4">To get started, share your location or enter your city/state/country.</p>
-              <button
-                className="bg-[#FFA726] text-white font-bold px-6 py-2 rounded-full shadow mb-4"
-                onClick={handleShareLocation}
-              >
-                Share My Location
-              </button>
-              <div className="w-full max-w-xs mx-auto mb-2">
-                <input
-                  type="text"
-                  value={cityInput}
-                  onChange={handleCityInput}
-                  placeholder="Enter city, state, country"
-                  className="w-full px-4 py-2 rounded-full bg-[#FFF3E0] text-[#FF7043] font-bold shadow focus:outline-none focus:ring-2 focus:ring-[#FF7043] transition"
-                  autoComplete="off"
-                />
-                {cityInput.length > 0 && (
-                  <ul className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg z-10 border border-[#FFE0B2]">
-                    {citySuggestions.length === 0 ? (
-                      <li className="px-4 py-2 text-[#FF7043] font-semibold">No results</li>
-                    ) : (
-                      citySuggestions.map(s => (
-                        <li
-                          key={s}
-                          className="px-4 py-2 cursor-pointer hover:bg-[#FFF3E0] text-[#FF7043] font-semibold"
-                          onClick={() => handleCitySelect(s)}
-                        >
-                          {s}
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                )}
-              </div>
-            </section>
-          )}
-
-          {step === 0 && !showLocationPrompt && (
-            <section
-              className="bg-[#FFA726] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
-            >
-              <h1 className="text-white font-extrabold text-4xl mb-4 tracking-tight">SNACKNAV</h1>
-              <p className="text-white text-lg font-semibold mb-8 leading-relaxed">
-                Walk more.<br />Eat better.<br />Get rewarded.
-              </p>
-              <button
-                className="bg-[#FF7043] text-white font-bold text-lg px-8 py-4 rounded-full shadow-lg transition hover:bg-[#F4511E] active:bg-[#FF7043]"
-                onClick={() => locationIsSet && setStep(1)}
-                aria-label="Get Started"
-                disabled={!locationIsSet}
-                style={!locationIsSet ? { opacity: 0.5, cursor: "not-allowed" } : {}}
-              >
-                Get Started
-              </button>
-              {!locationIsSet && (
-                <div className="mt-2 text-white text-sm font-semibold">
-                  Please share your location or enter your city to continue.
-                </div>
-              )}
-            </section>
-          )}
-
-          {step === 1 && !showLocationPrompt && (
-            <section
-              className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center"
-            >
-              <div className="w-full flex justify-between items-center mb-4 relative">
+          {/* Main UI Content */}
+          <div className="w-full h-full flex flex-col items-center justify-center px-8 pb-8">
+            {/* Location Prompt */}
+            {showLocationPrompt && (
+              <section className="bg-white/80 rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center mb-4 w-full max-w-xl mx-auto">
+                <h2 className="text-[#FF7043] font-extrabold text-2xl mb-2">Share your location</h2>
+                <p className="text-[#FF7043] mb-4">To get started, share your location or enter your city/state/country.</p>
                 <button
-                  className="bg-[#FFF3E0] text-[#FF7043] font-bold px-4 py-2 rounded-full shadow hover:bg-[#FFE0B2] transition"
-                  onClick={() => setStep(0)}
+                  className="bg-[#FFA726] text-white font-bold px-6 py-2 rounded-full shadow mb-4"
+                  onClick={handleShareLocation}
                 >
-                  ←
+                  Share My Location
                 </button>
-                <div className="w-2/3 relative">
+                <div className="w-full max-w-xs mx-auto mb-2">
                   <input
-                    ref={searchRef}
                     type="text"
-                    placeholder="Search for a location..."
-                    value={search}
-                    onChange={handleSearchChange}
+                    value={cityInput}
+                    onChange={handleCityInput}
+                    placeholder="Enter city, state, country"
                     className="w-full px-4 py-2 rounded-full bg-[#FFF3E0] text-[#FF7043] font-bold shadow focus:outline-none focus:ring-2 focus:ring-[#FF7043] transition"
                     autoComplete="off"
-                    onFocus={() => setShowSuggestions(true)}
                   />
-                  {showSuggestions && search.length > 0 && (
-                    <ul className="absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-lg z-10 border border-[#FFE0B2]">
-                      {filteredLocations.length === 0 ? (
+                  {cityInput.length > 0 && (
+                    <ul className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg z-10 border border-[#FFE0B2]">
+                      {citySuggestions.length === 0 ? (
                         <li className="px-4 py-2 text-[#FF7043] font-semibold">No results</li>
                       ) : (
-                        filteredLocations.map(loc => (
+                        citySuggestions.map(s => (
                           <li
-                            key={loc.id}
-                            className="px-4 py-2 cursor-pointer hover:bg-[#FFF3E0] text-[#FF7043] font-semibold flex items-center gap-2"
-                            onClick={() => handleLocationSelect(loc)}
+                            key={s}
+                            className="px-4 py-2 cursor-pointer hover:bg-[#FFF3E0] text-[#FF7043] font-semibold"
+                            onClick={() => handleCitySelect(s)}
                           >
-                            <span>{loc.icon}</span>
-                            <span>{loc.name}</span>
+                            {s}
                           </li>
                         ))
                       )}
                     </ul>
                   )}
                 </div>
-              </div>
-              <div className="w-full mb-4" style={{ position: "relative" }}>
-                {/* @ts-ignore */}
-                <MapContainer
-                  center={selectedLocation.coords as [number, number]}
-                  zoom={15}
-                  style={{ height: "200px", width: "100%", borderRadius: "24px" }}
-                  scrollWheelZoom={true}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  {/* Show ping for target location */}
-                  <Marker position={selectedLocation.coords as [number, number]}>
-                    <Popup>
-                      <span className="font-bold text-[#FF7043]">{selectedLocation.icon} {selectedLocation.name}</span>
-                    </Popup>
-                  </Marker>
-                  {/* Show user location if available */}
-                  <UserLocationMarker position={userLocation} />
-                </MapContainer>
-              </div>
-              <div className="flex justify-between w-full mb-4 text-[#FF7043] font-bold text-base">
-                <div><strong>235</strong><br />CALORIES</div>
-                <div><strong>2,850</strong><br />STEPS</div>
-                <div><strong>1.2</strong><br />Km</div>
-              </div>
-              <button
-                className="bg-[#FF7043] text-white font-bold text-lg px-8 py-4 rounded-full shadow-lg transition hover:bg-[#F4511E] active:bg-[#FF7043]"
-                onClick={() => setStep(2)}
-                aria-label="Start Challenge"
-              >
-                Start Challenge
-              </button>
-            </section>
-          )}
+              </section>
+            )}
 
-          {step === 2 && !showLocationPrompt && (
-            <section
-              className="bg-[#FFA726] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
-            >
-              {/* Task Details from slider */}
-              <div className="w-full flex justify-between items-center mb-4">
-                <button
-                  className="bg-[#FFF3E0] text-[#FF7043] font-bold px-4 py-2 rounded-full shadow hover:bg-[#FFE0B2] transition"
-                  onClick={() => setStep(1)}
-                >
-                  ←
-                </button>
-                <span className="text-4xl">{TASKS[activeTaskIdx].icon}</span>
-              </div>
-              <h2 className="text-white font-extrabold text-2xl mb-2">{TASKS[activeTaskIdx].name}</h2>
-              <p className="text-white text-lg font-semibold mb-4">
-                {TASKS[activeTaskIdx].description}<br />
-                <span className="text-[#FFF3E0] font-bold">
-                  +{TASKS[activeTaskIdx].calories} CALORIES · {TASKS[activeTaskIdx].steps} STEPS
-                </span>
-              </p>
-              <div className="w-full flex justify-center mb-6">
-                <div className="w-44 h-20 bg-[#FFF3E0] rounded-xl flex items-center justify-center shadow text-2xl">
-                  <span className="mr-2">{selectedLocation.icon}</span>
-                  <span className="font-extrabold text-[#FF7043]">{selectedLocation.name}</span>
-                </div>
-              </div>
-              <button
-                className="bg-[#FF7043] text-white font-bold text-lg px-8 py-4 rounded-full shadow-lg transition hover:bg-[#F4511E] active:bg-[#FF7043]"
-                onClick={() => setShowUpload(true)}
-                aria-label="Start Walk"
+            {step === 0 && !showLocationPrompt && (
+              <section
+                className="bg-[#FFA726] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
               >
-                Start Walk
-              </button>
-              {/* Upload Modal */}
-              {showUpload && (
-                <div
-                  className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+                <h1 className="text-white font-extrabold text-4xl mb-4 tracking-tight">SNACKNAV</h1>
+                <p className="text-white text-lg font-semibold mb-8 leading-relaxed">
+                  Walk more.<br />Eat better.<br />Get rewarded.
+                </p>
+                <button
+                  className="bg-[#FF7043] text-white font-bold text-lg px-8 py-4 rounded-full shadow-lg transition hover:bg-[#F4511E] active:bg-[#FF7043]"
+                  onClick={() => locationIsSet && setStep(1)}
+                  aria-label="Get Started"
+                  disabled={!locationIsSet}
+                  style={!locationIsSet ? { opacity: 0.5, cursor: "not-allowed" } : {}}
                 >
-                  <div
-                    className="bg-white rounded-2xl p-8 shadow-xl flex flex-col items-center"
-                  >
-                    <h3 className="text-[#FF7043] font-bold text-xl mb-4">Upload a photo at {selectedLocation.name}</h3>
-                    {!uploaded ? (
-                      <>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="mb-4"
-                          onChange={() => setUploaded(true)}
-                        />
-                        <button
-                          className="bg-[#FF7043] text-white font-bold px-6 py-2 rounded-full shadow transition hover:bg-[#F4511E]"
-                          onClick={() => setUploaded(true)}
-                        >
-                          Submit
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-green-600 font-bold mb-2">Photo uploaded! 🎉</span>
-                        <button
-                          className="bg-[#FF7043] text-white font-bold px-6 py-2 rounded-full shadow transition hover:bg-[#F4511E]"
-                          onClick={() => {
-                            setShowUpload(false);
-                            setStep(3);
-                            setUploaded(false);
-                            setPoints(points + 100); // Award points for upload
-                          }}
-                        >
-                          Continue
-                        </button>
-                      </>
-                    )}
-                    <button
-                      className="mt-4 text-[#FF7043] underline"
-                      onClick={() => { setShowUpload(false); setUploaded(false); }}
-                    >
-                      Cancel
-                    </button>
+                  Get Started
+                </button>
+                {!locationIsSet && (
+                  <div className="mt-2 text-white text-sm font-semibold">
+                    Please share your location or enter your city to continue.
                   </div>
-                </div>
-              )}
-            </section>
-          )}
+                )}
+              </section>
+            )}
 
-          {step === 3 && !showLocationPrompt && (
-            <section
-              className="bg-[#5C53FF] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
-            >
-              <div className="w-full flex justify-between items-center mb-4">
-                <button
-                  className="bg-[#FFF3E0] text-[#5C53FF] font-bold px-4 py-2 rounded-full shadow hover:bg-[#E3E0FF] transition"
-                  onClick={() => setStep(2)}
-                >
-                  ←
-                </button>
-                <span className="text-3xl">🎁</span>
-              </div>
-              <h2 className="text-white font-extrabold text-2xl mb-4">Rewards</h2>
-              <div className="flex gap-2 mb-6 w-full justify-center">
-                {REWARD_TABS.map(tab => (
+            {step === 1 && !showLocationPrompt && (
+              <section
+                className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center"
+              >
+                <div className="w-full flex justify-between items-center mb-4 relative">
                   <button
-                    key={tab}
-                    className={`px-4 py-2 rounded-full font-bold text-base transition
-                      ${tab === activeRewardTab
-                        ? "bg-white text-[#5C53FF] shadow"
-                        : "bg-[#5C53FF] text-white border border-white"}
-                    `}
-                    onClick={() => setActiveRewardTab(tab)}
+                    className="bg-[#FFF3E0] text-[#FF7043] font-bold px-4 py-2 rounded-full shadow hover:bg-[#FFE0B2] transition"
+                    onClick={() => setStep(0)}
                   >
-                    {tab}
+                    ←
                   </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-4 w-full">
-                {displayedRewards.map(reward => (
-                  <div key={reward.id} className="bg-white rounded-xl shadow p-4 flex flex-col items-center text-[#5C53FF] font-bold">
-                    <div className="text-4xl mb-2">{reward.img}</div>
-                    <div className="text-lg mb-1">{reward.name}</div>
-                    <div className="text-base mb-2 text-[#FFA726]">{reward.points} pts</div>
-                    <button
-                      className={`bg-[#FFA726] text-white font-bold px-4 py-2 rounded-full shadow transition hover:bg-[#FF7043] active:bg-[#FFA726] ${points < reward.points ? "opacity-50 cursor-not-allowed" : ""}`}
-                      aria-label={`Claim ${reward.name}`}
-                      disabled={points < reward.points}
-                      onClick={() => {
-                        if (points >= reward.points) setPoints(points - reward.points);
-                      }}
-                    >
-                      Claim
-                    </button>
+                  <div className="w-2/3 relative">
+                    <input
+                      ref={searchRef}
+                      type="text"
+                      placeholder="Search for a location..."
+                      value={search}
+                      onChange={handleSearchChange}
+                      className="w-full px-4 py-2 rounded-full bg-[#FFF3E0] text-[#FF7043] font-bold shadow focus:outline-none focus:ring-2 focus:ring-[#FF7043] transition"
+                      autoComplete="off"
+                      onFocus={() => setShowSuggestions(true)}
+                    />
+                    {showSuggestions && search.length > 0 && (
+                      <ul className="absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-lg z-10 border border-[#FFE0B2]">
+                        {filteredLocations.length === 0 ? (
+                          <li className="px-4 py-2 text-[#FF7043] font-semibold">No results</li>
+                        ) : (
+                          filteredLocations.map(loc => (
+                            <li
+                              key={loc.id}
+                              className="px-4 py-2 cursor-pointer hover:bg-[#FFF3E0] text-[#FF7043] font-semibold flex items-center gap-2"
+                              onClick={() => handleLocationSelect(loc)}
+                            >
+                              <span>{loc.icon}</span>
+                              <span>{loc.name}</span>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    )}
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
+                </div>
+                <div className="w-full mb-4" style={{ position: "relative" }}>
+                  {/* @ts-ignore */}
+                  <MapContainer
+                    center={selectedLocation.coords as [number, number]}
+                    zoom={15}
+                    style={{ height: "200px", width: "100%", borderRadius: "24px" }}
+                    scrollWheelZoom={true}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    {/* Show ping for target location */}
+                    <Marker position={selectedLocation.coords as [number, number]}>
+                      <Popup>
+                        <span className="font-bold text-[#FF7043]">{selectedLocation.icon} {selectedLocation.name}</span>
+                      </Popup>
+                    </Marker>
+                    {/* Show user location if available */}
+                    <UserLocationMarker position={userLocation} />
+                  </MapContainer>
+                </div>
+                <div className="flex justify-between w-full mb-4 text-[#FF7043] font-bold text-base">
+                  <div><strong>235</strong><br />CALORIES</div>
+                  <div><strong>2,850</strong><br />STEPS</div>
+                  <div><strong>1.2</strong><br />Km</div>
+                </div>
+                <button
+                  className="bg-[#FF7043] text-white font-bold text-lg px-8 py-4 rounded-full shadow-lg transition hover:bg-[#F4511E] active:bg-[#FF7043]"
+                  onClick={() => setStep(2)}
+                  aria-label="Start Challenge"
+                >
+                  Start Challenge
+                </button>
+              </section>
+            )}
 
-          {step === 4 && !showLocationPrompt && (
-            <section
-              className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
-            >
-              <h2 className="text-[#FF7043] font-extrabold text-2xl mb-4">Profile</h2>
-              <p className="text-lg text-[#FF7043]">Profile details coming soon!</p>
-              <div className="mt-4 bg-[#FFF3E0] rounded-xl px-4 py-2 text-[#FF7043] font-bold shadow">
-                Points: {points}
-              </div>
-              {userLocation && (
-                <div className="mt-2 text-[#FF7043] text-sm">
-                  Your location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+            {step === 2 && !showLocationPrompt && (
+              <section
+                className="bg-[#FFA726] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
+              >
+                {/* Task Details from slider */}
+                <div className="w-full flex justify-between items-center mb-4">
+                  <button
+                    className="bg-[#FFF3E0] text-[#FF7043] font-bold px-4 py-2 rounded-full shadow hover:bg-[#FFE0B2] transition"
+                    onClick={() => setStep(1)}
+                  >
+                    ←
+                  </button>
+                  <span className="text-4xl">{TASKS[activeTaskIdx].icon}</span>
                 </div>
-              )}
-              {cityInput && (
-                <div className="mt-2 text-[#FF7043] text-sm">
-                  City: {cityInput}
+                <h2 className="text-white font-extrabold text-2xl mb-2">{TASKS[activeTaskIdx].name}</h2>
+                <p className="text-white text-lg font-semibold mb-4">
+                  {TASKS[activeTaskIdx].description}<br />
+                  <span className="text-[#FFF3E0] font-bold">
+                    +{TASKS[activeTaskIdx].calories} CALORIES · {TASKS[activeTaskIdx].steps} STEPS
+                  </span>
+                  <br />
+                  <span className="text-[#FF7043] font-bold">
+                    Distance: {distanceKm.toFixed(2)} km
+                  </span>
+                  <br />
+                  <span className="text-[#FF7043] font-bold">
+                    Points for completion: {pointsForThisTask}
+                  </span>
+                  {distanceKm >= 10 && (
+                    <div className="text-[#FF7043] text-sm mt-2">
+                      Max points for distance capped at 10km.
+                    </div>
+                  )}
+                </p>
+                <div className="w-full flex justify-center mb-6">
+                  <div className="w-44 h-20 bg-[#FFF3E0] rounded-xl flex items-center justify-center shadow text-2xl">
+                    <span className="mr-2">{selectedLocation.icon}</span>
+                    <span className="font-extrabold text-[#FF7043]">{selectedLocation.name}</span>
+                  </div>
                 </div>
-              )}
-            </section>
-          )}
+                <button
+                  className="bg-[#FF7043] text-white font-bold text-lg px-8 py-4 rounded-full shadow-lg transition hover:bg-[#F4511E] active:bg-[#FF7043]"
+                  onClick={() => setShowUpload(true)}
+                  aria-label="Start Walk"
+                >
+                  Start Walk
+                </button>
+                {/* Upload Modal */}
+                {showUpload && (
+                  <div
+                    className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+                  >
+                    <div
+                      className="bg-white rounded-2xl p-8 shadow-xl flex flex-col items-center"
+                    >
+                      <h3 className="text-[#FF7043] font-bold text-xl mb-4">Upload a photo at {selectedLocation.name}</h3>
+                      {!uploaded ? (
+                        <>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="mb-4"
+                            onChange={() => setUploaded(true)}
+                          />
+                          <button
+                            className="bg-[#FF7043] text-white font-bold px-6 py-2 rounded-full shadow transition hover:bg-[#F4511E]"
+                            onClick={() => setUploaded(true)}
+                          >
+                            Submit
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-green-600 font-bold mb-2">Photo uploaded! 🎉</span>
+                          <button
+                            className="bg-[#FF7043] text-white font-bold px-6 py-2 rounded-full shadow transition hover:bg-[#F4511E]"
+                            onClick={() => {
+                              setShowUpload(false);
+                              setStep(3);
+                              setUploaded(false);
+                              setPoints(points + pointsForThisTask); // Award scaled points for upload
+                            }}
+                          >
+                            Continue
+                          </button>
+                        </>
+                      )}
+                      <button
+                        className="mt-4 text-[#FF7043] underline"
+                        onClick={() => { setShowUpload(false); setUploaded(false); }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {step === 3 && !showLocationPrompt && (
+              <section
+                className="bg-[#5C53FF] rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
+              >
+                <div className="w-full flex justify-between items-center mb-4">
+                  <button
+                    className="bg-[#FFF3E0] text-[#5C53FF] font-bold px-4 py-2 rounded-full shadow hover:bg-[#E3E0FF] transition"
+                    onClick={() => setStep(2)}
+                  >
+                    ←
+                  </button>
+                  <span className="text-3xl">🎁</span>
+                </div>
+                <h2 className="text-white font-extrabold text-2xl mb-4">Rewards</h2>
+                <div className="flex gap-2 mb-6 w-full justify-center">
+                  {REWARD_TABS.map(tab => (
+                    <button
+                      key={tab}
+                      className={`px-4 py-2 rounded-full font-bold text-base transition
+                        ${tab === activeRewardTab
+                          ? "bg-white text-[#5C53FF] shadow"
+                          : "bg-[#5C53FF] text-white border border-white"}
+                    `}
+                      onClick={() => setActiveRewardTab(tab)}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-4 w-full">
+                  {displayedRewards.map(reward => (
+                    <div key={reward.id} className="bg-white rounded-xl shadow p-4 flex flex-col items-center text-[#5C53FF] font-bold">
+                      <div className="text-4xl mb-2">{reward.img}</div>
+                      <div className="text-lg mb-1">{reward.name}</div>
+                      <div className="text-base mb-2 text-[#FFA726]">{reward.points} pts</div>
+                      <button
+                        className={`bg-[#FFA726] text-white font-bold px-4 py-2 rounded-full shadow transition hover:bg-[#FF7043] active:bg-[#FFA726] ${points < reward.points ? "opacity-50 cursor-not-allowed" : ""}`}
+                        aria-label={`Claim ${reward.name}`}
+                        disabled={points < reward.points}
+                        onClick={() => {
+                          if (points >= reward.points) setPoints(points - reward.points);
+                        }}
+                      >
+                        Claim
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {step === 4 && !showLocationPrompt && (
+              <section
+                className="bg-white rounded-[32px] shadow-xl p-8 flex flex-col items-center text-center"
+              >
+                <h2 className="text-[#FF7043] font-extrabold text-2xl mb-4">Profile</h2>
+                <p className="text-lg text-[#FF7043]">Profile details coming soon!</p>
+                <div className="mt-4 bg-[#FFF3E0] rounded-xl px-4 py-2 text-[#FF7043] font-bold shadow">
+                  Points: {points}
+                </div>
+                {userLocation && (
+                  <div className="mt-2 text-[#FF7043] text-sm">
+                    Your location: {userLocation[0].toFixed(4)}, {userLocation[1].toFixed(4)}
+                  </div>
+                )}
+                {cityInput && (
+                  <div className="mt-2 text-[#FF7043] text-sm">
+                    City: {cityInput}
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
         </div>
       </main>
       {/* Custom font */}
@@ -709,10 +843,20 @@ export default function HomePage() {
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        @media (max-width: 600px) {
-          .max-w-4xl { max-width: 100vw !important; }
-          .rounded-[32px] { border-radius: 0.75rem !important; }
-          .p-8 { padding: 1.25rem !important; }
+        @keyframes fadein {
+          0% { opacity: 0; transform: translateY(-20px);}
+          100% { opacity: 1; transform: translateY(0);}
+        }
+        .animate-fadein {
+          animation: fadein 2s ease-in;
+        }
+        @media (max-width: 900px) {
+          main > div {
+            width: 98vw !important;
+            min-height: 90vh !important;
+            border-radius: 1.5rem !important;
+            padding: 0 !important;
+          }
         }
       `}</style>
     </div>
