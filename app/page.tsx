@@ -562,7 +562,7 @@ export default function HomePage() {
                             {s}
                           </li>
                         ))
-                      )}
+                      }
                     </ul>
                   )}
                 </div>
@@ -637,7 +637,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="w-full mb-4" style={{ position: "relative" }}>
-                  {/* @ts-ignore */}
+                  {/* @ts-expect-error */}
                   <MapContainer
                     center={selectedLocation.coords as [number, number]}
                     zoom={15}
