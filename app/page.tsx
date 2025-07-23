@@ -637,7 +637,6 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="w-full mb-4" style={{ position: "relative" }}>
-                  {/* @ts-expect-error */}
                   <MapContainer
                     center={selectedLocation.coords as [number, number]}
                     zoom={15}
