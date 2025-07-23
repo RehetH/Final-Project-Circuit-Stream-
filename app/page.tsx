@@ -224,14 +224,20 @@ export default function HomePage() {
 function MyComponent() {
   const [scrolled, setScrolled] = useState(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+useEffect(() => {
+  if (typeof window === "undefined") return;
 
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    window.addEventListener("scroll", onScroll);
+  function handleScroll() {
+    setScrolled(window.scrollY > 8);
+  }
 
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  window.addEventListener("scroll", handleScroll);
+
+  // Call handler right away so state gets updated if user is already scrolled
+  handleScroll();
+
+  return () => window.removeEventListener("scroll", handleScroll);
+}, []);
 
   return (
     <div>
