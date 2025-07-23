@@ -399,7 +399,7 @@ export default function HomePage() {
         {/* Review animation (floating text) */}
         <div className="absolute left-1/2 top-16 transform -translate-x-1/2 z-10 pointer-events-none">
           <div className="text-[#FFD700] text-2xl font-bold animate-fadein">
-            "⭐ Elden Ring meets SnackNav. Gorgeous UI, fun rewards, and a reason to walk!" 
+            ⭐ Elden Ring meets SnackNav. Gorgeous UI, fun rewards, and a reason to walk! 
           </div>
         </div>
       </div>
