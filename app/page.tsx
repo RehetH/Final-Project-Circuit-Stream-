@@ -562,7 +562,7 @@ export default function HomePage() {
                             {s}
                           </li>
                         ))
-                      }
+                      )}
                     </ul>
                   )}
                 </div>
