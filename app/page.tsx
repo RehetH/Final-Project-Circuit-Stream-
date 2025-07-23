@@ -220,11 +220,14 @@ export default function HomePage() {
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+useEffect(() => {
+  if (typeof window === "undefined") return; // ⛔ SSR safety check
+
+  const onScroll = () => setScrolled(window.scrollY > 8);
+  window.addEventListener("scroll", onScroll);
+  return () => window.removeEventListener("scroll", onScroll);
+}, []);
+
 
   // Search handler with suggestions
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
