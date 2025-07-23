@@ -209,7 +209,7 @@ export default function HomePage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeRewardTab, setActiveRewardTab] = useState<string>("All");
   const [points, setPoints] = useState(0);
-
+setScrolled(false);
   // Location sharing
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [showLocationPrompt, setShowLocationPrompt] = useState(true);
@@ -221,30 +221,7 @@ export default function HomePage() {
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-function MyComponent() {
-  const [scrolled, setScrolled] = useState(false);
 
-useEffect(() => {
-  if (typeof window === "undefined") return;
-
-  function handleScroll() {
-    setScrolled(window.scrollY > 8);
-  }
-
-  window.addEventListener("scroll", handleScroll);
-
-  // Call handler right away so state gets updated if user is already scrolled
-  handleScroll();
-
-  return () => window.removeEventListener("scroll", handleScroll);
-}, []);
-
-  return (
-    <div>
-      {/* your JSX */}
-    </div>
-  );
-}
 
 
 
