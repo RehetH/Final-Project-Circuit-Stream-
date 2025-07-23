@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
+
 // --- Types ---
 interface Location {
   id: string;
@@ -220,13 +221,25 @@ export default function HomePage() {
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-useEffect(() => {
-  if (typeof window === "undefined") return; // ⛔ SSR safety check
+function MyComponent() {
+  const [scrolled, setScrolled] = useState(false);
 
-  const onScroll = () => setScrolled(window.scrollY > 8);
-  window.addEventListener("scroll", onScroll);
-  return () => window.removeEventListener("scroll", onScroll);
-}, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    window.addEventListener("scroll", onScroll);
+
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div>
+      {/* your JSX */}
+    </div>
+  );
+}
+
 
 
   // Search handler with suggestions
