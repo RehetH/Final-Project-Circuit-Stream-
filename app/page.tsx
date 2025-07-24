@@ -312,14 +312,23 @@ try {
 const response = await fetch(
 `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`
 );
-const data = await response.json();
-return data.map((item: any) => ({
-display_name: item.display_name,
-lat: item.lat,
-lon: item.lon,
-type: item.type,
-importance: item.importance || 0,
+type NominatimResult = {
+  display_name: string;
+  lat: string;
+  lon: string;
+  type: string;
+  importance?: number;
+};
+
+const data: NominatimResult[] = await response.json();
+return data.map((item) => ({
+  display_name: item.display_name,
+  lat: item.lat,
+  lon: item.lon,
+  type: item.type,
+  importance: item.importance ?? 0,
 }));
+
 } catch (error) {
 console.error('Search error:', error);
 // Fallback to local suggestions
