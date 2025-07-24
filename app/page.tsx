@@ -203,13 +203,12 @@ export default function HomePage() {
   const [filteredLocations, setFilteredLocations] = useState<Location[]>(LOCATIONS);
   const [selectedLocation, setSelectedLocation] = useState<Location>(LOCATIONS[0]);
   const [navOpen, setNavOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const scrolled = false;
   const [showUpload, setShowUpload] = useState(false);
   const [uploaded, setUploaded] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeRewardTab, setActiveRewardTab] = useState<string>("All");
   const [points, setPoints] = useState(0);
-setScrolled(false);
   // Location sharing
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [showLocationPrompt, setShowLocationPrompt] = useState(true);
